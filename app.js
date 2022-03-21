@@ -5,6 +5,7 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const ejs = require("ejs");
 const mongoose = require("mongoose");
+
 // const md5 = require("md5");
 
 // const bcrypt = require("bcrypt");
@@ -16,6 +17,10 @@ const passportLocalMongoose = require("passport-local-mongoose");
 const findOrCreate = require("mongoose-findorcreate")
 // const findOrCreate = require('mongoose-find-or-create')
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
+
+
+
+
 
 const app = express();
 app.set("view engine", "ejs");
@@ -37,7 +42,9 @@ mongoose.connect("mongodb://localhost:27017/userDB");
 const userSchema = new mongoose.Schema({
   email: String,
   password: String,
-  googleId:String
+  googleId:String,
+  secret:String,
+  name:String
 });
 // userSchema.plugin(encrypt,{secret:process.env.SECRET,encryptedFields:["password"]});
 userSchema.plugin(passportLocalMongoose);
@@ -66,7 +73,7 @@ passport.use(new GoogleStrategy({
   },
   function(accessToken, refreshToken, profile, cb) {
     console.log(profile);
-    User.findOrCreate({googleId: profile.id }, function (err, user) {
+    User.findOrCreate({googleId: profile.id, name:profile. displayName }, function (err, user) {
       return cb(err, user);
     });
   }
@@ -100,11 +107,47 @@ app.get("/register", function(req, res) {
 });
 
 app.get("/secret", function(req,res){
+  // if(req.isAuthenticated()){
+  //   res.render("secrets");
+  // }else{
+  //   res.redirect("/login")
+  // }
+User.find({secret:{$ne:null}}, function(err, foundUsers){
+  if(err){
+    console.log(err);
+  }else{
+    if(foundUsers){
+      res.render("secrets", {userwithSecret:foundUsers})
+    }
+  }
+})
+
+});
+
+app.get("/submit", function(req,res){
   if(req.isAuthenticated()){
-    res.render("secrets");
+    res.render("submit");
   }else{
     res.redirect("/login")
   }
+});
+
+app.post("/submit", function(req, res){
+  const submitSecret = req.body.secret;
+  const uploadImage = req.file;
+  console.log(req.user._id);
+  User.findById(req.user._id, function(err, foundUser){
+    if(err){
+      console.log(err);
+    }else {
+      if(foundUser){
+        foundUser.secret = submitSecret;
+        foundUser.save(function(){
+          res.redirect("/secret")
+        });
+      }
+    }
+  });
 });
 
 ///////////////////logout function/////////////////
